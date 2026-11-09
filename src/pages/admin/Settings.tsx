@@ -125,11 +125,11 @@ export const Settings: React.FC = () => {
       });
       const data = await res.json();
       if (data.simulated) {
-        setEmailStatusMessage(`Simulated notification logged! (Naka-record sa system. Kung nais ng totoong email sa inbox ng magulang, kumuha ng libreng key sa resend.com at i-save sa ibaba).`);
+        setEmailStatusMessage(`Simulated email logged. (System is active. Provide a live Resend API key below to send real emails to parent inboxes).`);
       } else if (data.success) {
-        setEmailStatusMessage(`Tagumpay! Naipadala ang totoong test attendance email sa ${testEmail}! Pakisuri ang iyong inbox o spam folder.`);
+        setEmailStatusMessage(`Success! Real attendance test notification delivered to ${testEmail}. Please check your inbox or spam folder.`);
       } else {
-        setEmailStatusMessage(`Notice: ${data.error || 'Hindi naipadala ang email.'}`);
+        setEmailStatusMessage(`Notice: ${data.error || 'Failed to dispatch email.'}`);
       }
     } catch (e: any) {
       setEmailStatusMessage(`Error: ${e.message}`);
@@ -353,14 +353,14 @@ export const Settings: React.FC = () => {
           </span>
         </div>
 
-        {/* How Auto-Send Works Guide */}
+        {/* How Automated Alerts Work */}
         <div className="p-4 bg-blue-50/70 border border-blue-100 rounded-xl text-xs space-y-2">
-          <h4 className="font-bold text-blue-900">Paano Gumagana ang Auto-Send Email sa Magulang:</h4>
+          <h4 className="font-bold text-blue-900">How Automated Parent Notifications Work:</h4>
           <ol className="list-decimal list-inside space-y-1 text-slate-700 text-[11px] leading-relaxed">
-            <li><strong>Rehistro ng Magulang:</strong> Sa tab na <em>Students</em> o <em>Parents/Guardians</em>, ilagay ang lehitimong email address ng magulang o guardian ng bawat mag-aaral.</li>
-            <li><strong>Gate Scanning:</strong> Sa tuwing mag-i-scan ang mag-aaral ng kanyang QR code sa gate terminal (Entry o Exit), awtomatikong hahanapin ng system ang nakakabit na email ng magulang.</li>
-            <li><strong>Instant Dispatch:</strong> Agad na ipapadala ng system ang branded email alert na may pangalan ng estudyante, eksaktong oras, petsa, at attendance status (PRESENT o LATE).</li>
-            <li><strong>Record-Keeping:</strong> Makikita ang lahat ng naipadalang alert sa tab na <em>Email Notifications</em>.</li>
+            <li><strong>Parent Registration:</strong> Register the parent or guardian's email under <em>Students</em> or <em>Parents/Guardians</em>.</li>
+            <li><strong>Gate Verification:</strong> Each time a student scans their QR badge at the gate terminal (Entry or Exit), the system retrieves the linked guardian.</li>
+            <li><strong>Instant Dispatch:</strong> The system automatically dispatches a branded email receipt with student details, exact timestamp, and status (PRESENT or LATE).</li>
+            <li><strong>Audit Logs:</strong> Monitor all sent and queued notices under the <em>Email Notifications</em> tab.</li>
           </ol>
         </div>
 
@@ -376,7 +376,7 @@ export const Settings: React.FC = () => {
               rel="noreferrer" 
               className="text-[11px] text-blue-600 hover:underline font-semibold"
             >
-              Kumuha ng libreng key sa Resend.com &rarr;
+              Get free API key at Resend.com &rarr;
             </a>
           </div>
           
@@ -392,21 +392,21 @@ export const Settings: React.FC = () => {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shrink-0"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all shrink-0 cursor-pointer"
             >
               Save Key
             </button>
           </div>
           <p className="text-[10px] text-slate-500">
-            Libre ang Resend hanggang 3,000 emails kada buwan (100 emails/araw) na sapat na sa araw-araw na attendance.
+            Resend includes 3,000 free emails per month (100 emails/day), ideal for daily school gate attendance.
           </p>
         </div>
 
-        {/* Interactive Live Email Tester */}
+        {/* Live Email Tester */}
         <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-3">
           <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
             <Send className="w-3.5 h-3.5 text-emerald-600" />
-            <span>I-test ang Email Dispatcher (Subukan magpadala sa iyong email ngayon)</span>
+            <span>Test Email Dispatcher (Send a sample alert to verify delivery)</span>
           </h4>
           
           <form onSubmit={handleTestEmailSend} className="flex flex-col sm:flex-row gap-2">
@@ -415,22 +415,22 @@ export const Settings: React.FC = () => {
               required
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
-              placeholder="alvindelacruz9120@gmail.com"
+              placeholder="admin@school.edu.ph"
               className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
             />
             <button
               type="submit"
               disabled={testingEmail}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
               {testingEmail ? <RotateCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-              <span>{testingEmail ? 'Ipinapadala...' : 'Magpadala ng Test Email'}</span>
+              <span>{testingEmail ? 'Sending...' : 'Send Test Alert'}</span>
             </button>
           </form>
 
           {emailStatusMessage && (
             <div className={`p-3 rounded-xl text-xs font-medium ${
-              emailStatusMessage.includes('Tagumpay') 
+              emailStatusMessage.includes('Success') 
                 ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' 
                 : 'bg-blue-100 text-blue-900 border border-blue-200'
             }`}>
