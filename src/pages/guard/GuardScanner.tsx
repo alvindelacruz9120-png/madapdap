@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
+import confetti from 'canvas-confetti';
 import { collection, doc, getDocs, increment, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -68,28 +69,23 @@ export const GuardScanner: React.FC = () => {
       const time = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).format(new Date());
       const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
       const minute = Number(new Intl.DateTimeFormat('en-GB', { timeZone: timezone, minute: '2-digit' }).format(new Date()));
-      const lateCutoff = 7 * 60 + 30;
-      const status = mode === 'ENTRY' ? (hour * 60 + minute > lateCutoff ? 'LATE' : 'PRESENT') : 'N/A';
+      const status = mode === 'ENTRY' ? (hour * 60 + minute > 7 * 60 + 30 ? 'LATE' : 'PRESENT') : 'N/A';
       const eventId = `evt_${Date.now()}_${globalThis.crypto.getRandomValues(new Uint32Array(1))[0].toString(16)}`;
-      const event = {
+      await setDoc(doc(db, 'attendance_events', eventId), {
         eventId, studentId: student.studentId, studentName: `${student.firstName} ${student.lastName}`,
         eventType: mode, timestamp, guardId: userProfile.uid, guardName: userProfile.fullName || 'Duty Guard',
         date, status, idempotencyKey: `${student.studentId}_${mode}_${date}_${timestamp}`, createdAt: timestamp,
-      };
-      await setDoc(doc(db, 'attendance_events', eventId), event);
+      });
 
-      const attendanceRef = doc(db, 'attendance', `${student.studentId}_${date}`);
-      const attendanceData = {
+      await setDoc(doc(db, 'attendance', `${student.studentId}_${date}`), {
         studentId: student.studentId, studentName: `${student.firstName} ${student.lastName}`,
         gradeLevel: student.gradeLevel, section: student.section, date,
         status: mode === 'ENTRY' ? status : 'PRESENT',
         firstEntryAt: mode === 'ENTRY' ? timestamp : null,
         lastExitAt: mode === 'EXIT' ? timestamp : null,
         entryCount: mode === 'ENTRY' ? increment(1) : increment(0),
-        exitCount: mode === 'EXIT' ? increment(1) : increment(0),
-        updatedAt: timestamp,
-      };
-      await setDoc(attendanceRef, attendanceData, { merge: true });
+        exitCount: mode === 'EXIT' ? increment(1) : increment(0), updatedAt: timestamp,
+      }, { merge: true });
 
       const fullName = `${student.firstName} ${student.middleName ? `${student.middleName} ` : ''}${student.lastName}`;
       setResult({
@@ -98,6 +94,7 @@ export const GuardScanner: React.FC = () => {
         attendance: { eventId, eventType: mode, date, time, status },
         notifications: { totalTargeted: 0, dispatched: [] },
       });
+      confetti({ particleCount: 90, spread: 75, startVelocity: 35, origin: { y: 0.62 }, colors: ['#10b981', '#34d399', '#fbbf24', '#ffffff'] });
     } catch (e: any) {
       console.error('QR attendance scan failed:', e);
       setError(e?.code === 'permission-denied' ? 'Firestore denied this scan. Sign in with an active Guard/Admin account and verify deployed Firestore rules.' : (e.message || 'Could not verify QR.'));
@@ -123,16 +120,15 @@ export const GuardScanner: React.FC = () => {
   };
 
   const stopCamera = async () => {
-    try {
-      if (scannerRef.current?.isScanning) await scannerRef.current.stop();
-      await scannerRef.current?.clear();
-    } catch (e) { console.warn('Stopping QR scanner failed:', e); }
+    try { if (scannerRef.current?.isScanning) await scannerRef.current.stop(); await scannerRef.current?.clear(); }
+    catch (e) { console.warn('Stopping QR scanner failed:', e); }
     scannerRef.current = null;
     setScanning(false);
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-12">
+      <style>{`@keyframes scan-success-in{0%{opacity:0;transform:translateY(18px) scale(.92)}65%{opacity:1;transform:translateY(-3px) scale(1.02)}100%{opacity:1;transform:translateY(0) scale(1)}}@keyframes scan-check-pop{0%{transform:scale(.3) rotate(-25deg);opacity:0}70%{transform:scale(1.2) rotate(8deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}.scan-success-in{animation:scan-success-in .48s cubic-bezier(.2,.8,.2,1) both}.scan-check-pop{animation:scan-check-pop .55s cubic-bezier(.2,.8,.2,1) both}`}</style>
       <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
         <div className="flex items-center justify-between gap-3">
           <div><h2 className="text-base font-extrabold text-slate-900">Gate Attendance Terminal</h2><p className="text-xs text-slate-500">{userProfile?.fullName || 'Guard on Duty'} · {now.toLocaleTimeString('en-US', { timeZone: 'Asia/Manila' })}</p></div>
@@ -143,7 +139,6 @@ export const GuardScanner: React.FC = () => {
           <button type="button" onClick={() => setMode('EXIT')} className={`py-3 px-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 ${mode === 'EXIT' ? 'bg-blue-600 text-white' : 'bg-slate-50 border text-slate-600'}`}><LogOut className="w-5 h-5"/> STUDENT EXIT</button>
         </div>
       </div>
-
       <div className="bg-slate-900 rounded-2xl p-4 text-white space-y-3">
         <div id="qr-reader-container" className="w-full min-h-[280px] bg-slate-950 rounded-xl overflow-hidden" />
         <div className="flex gap-2"><button onClick={() => void startCamera()} className="flex-1 p-2.5 bg-blue-600 rounded-xl text-sm font-bold"><Camera className="inline w-4 h-4 mr-2"/>Start camera</button><button onClick={() => void stopCamera()} className="p-2.5 border border-slate-600 rounded-xl text-sm">Stop</button></div>
@@ -153,7 +148,7 @@ export const GuardScanner: React.FC = () => {
       {showManual && <form onSubmit={(e) => { e.preventDefault(); void processToken(manualCode); setManualCode(''); }} className="flex gap-2 p-3 bg-white border rounded-xl"><input value={manualCode} onChange={(e) => setManualCode(e.target.value)} placeholder="Scan token" className="flex-1 p-2 border rounded-lg text-xs"/><button disabled={busy || !manualCode.trim()} className="px-4 bg-slate-900 text-white rounded-lg text-xs">Verify</button></form>}
       {busy && <p className="text-sm text-slate-600 flex gap-2"><RefreshCw className="w-4 h-4 animate-spin"/>Verifying QR...</p>}
       {error && <div role="alert" className="p-4 bg-rose-50 border-2 border-rose-400 rounded-2xl text-rose-800 text-sm flex gap-2"><XCircle className="w-5 h-5 shrink-0"/>{error}</div>}
-      {result && <div className="p-4 bg-emerald-50 border-2 border-emerald-400 rounded-2xl text-emerald-900"><div className="font-bold flex items-center gap-2"><CheckCircle2 className="w-5 h-5"/>Student {result.attendance.eventType} successful</div><div className="mt-2 font-semibold">{result.student.fullName} · {result.student.studentId}</div><div className="text-sm flex items-center gap-2"><Clock className="w-4 h-4"/>{result.attendance.date} {result.attendance.time} · {result.attendance.status}</div><p className="text-xs mt-2">Attendance recorded. Parent email alerts require the backend email service.</p></div>}
+      {result && <div key={result.attendance.eventId} className="scan-success-in p-5 bg-emerald-50 border-2 border-emerald-400 rounded-2xl text-emerald-900 shadow-lg"><div className="font-bold flex items-center gap-2"><CheckCircle2 className="scan-check-pop w-7 h-7 text-emerald-600"/>Student {result.attendance.eventType} successful!</div><div className="mt-2 text-lg font-extrabold">{result.student.fullName}</div><div className="text-sm">ID: {result.student.studentId} · {result.student.gradeLevel} · {result.student.section}</div><div className="text-sm flex items-center gap-2 mt-1"><Clock className="w-4 h-4"/>{result.attendance.date} {result.attendance.time} · {result.attendance.status}</div><p className="text-xs mt-2">Attendance recorded. Parent email alerts require the backend email service.</p></div>}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 text-slate-500 text-xs flex items-center gap-2"><ShieldCheck className="w-5 h-5"/>QR tokens are verified against the signed-in user's Firestore permissions.</div>
     </div>
   );
